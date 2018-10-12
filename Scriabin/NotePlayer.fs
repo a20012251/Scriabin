@@ -18,4 +18,5 @@ let play (rand: Random) =
         Enum.ToObject(typeof<Modifier>, index) |> unbox<Modifier>
 
     let modifierName = Modifier.toString modifier
-    TextToSpeech.SpeakAsync(simpleNote.ToString() + " " + modifierName, settings) |> ignore
+    TextToSpeech.SpeakAsync("Next " + (SimpleNote.toString simpleNote) + " " + modifierName, settings) 
+    |> ignore

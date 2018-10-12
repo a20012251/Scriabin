@@ -30,3 +30,15 @@ module Modifier =
         match modifier.ToString() with
         | "Natural" -> ""
         | s -> s
+
+module SimpleNote =
+    let toString (simpleNote: SimpleNote) =
+        match simpleNote with
+        | SimpleNote.A -> "ay"
+        | SimpleNote.B -> "bee"
+        | SimpleNote.C -> "cee"
+        | SimpleNote.D -> "dee"
+        | SimpleNote.E -> "e"
+        | SimpleNote.F -> "ef"
+        | SimpleNote.G -> "gee"
+        | _ -> ""
