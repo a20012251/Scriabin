@@ -36,7 +36,7 @@ module SimpleNote =
         match simpleNote with
         | SimpleNote.A -> "ay"
         | SimpleNote.B -> "bee"
-        | SimpleNote.C -> "cee"
+        | SimpleNote.C -> "see"
         | SimpleNote.D -> "dee"
         | SimpleNote.E -> "e"
         | SimpleNote.F -> "ef"
