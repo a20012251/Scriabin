@@ -15,13 +15,15 @@ module App =
             | KeyboardNoteGame -> "Keyboard Notes"
 
     type Model = 
-      { ActiveGame: Game option}
+      { ActiveGame: Game option
+        WaitTimeInSec: int }
 
     type Msg = 
         | GameToggled of Game * isOn: bool 
         | GameRepetition of Game
+        | WaitTimeValueChanged of waitTime: int
 
-    let initModel = { ActiveGame = None}
+    let initModel = { ActiveGame = None; WaitTimeInSec = 4}
 
     let init () = initModel, Cmd.none
 
@@ -30,20 +32,21 @@ module App =
         | SimpleNoteGame -> NotePlayer.playRandomSimpleNote ()
         | KeyboardNoteGame -> NotePlayer.playRandomKeyboardNote ()
 
-    let repetitionCmd game = 
+    let repetitionCmd game waitTimeInSec = 
         async { 
             do! Async.AwaitIAsyncResult (speak game) |> Async.Ignore
-            do! Async.Sleep 4000
+            do! Async.Sleep (waitTimeInSec * 1000)
             return GameRepetition game }
         |> Cmd.ofAsyncMsg
 
 
     let update msg (model: Model) =
         match msg, model.ActiveGame with
+        | WaitTimeValueChanged value, _ -> {model with WaitTimeInSec = value}, Cmd.none
         | GameRepetition _, None ->  model, Cmd.none
         | GameRepetition game, Some activeGame  when game <> activeGame ->  model, Cmd.none
         | GameRepetition _, Some activeGame -> 
-                model, repetitionCmd activeGame
+                model, repetitionCmd activeGame model.WaitTimeInSec
         | GameToggled (game, true), _ -> {model with ActiveGame = Some game}, Cmd.ofMsg (GameRepetition game)
         | GameToggled (game, false), Some activeGame when activeGame = game -> {model with ActiveGame = None}, Cmd.none
         | GameToggled (_, false), _ -> model, Cmd.none
@@ -60,14 +63,29 @@ module App =
 
     let createGameView dispatch model game =
         [ createLabel game
-          createToggleForGame dispatch model game]
+          createToggleForGame dispatch model game
+        ]
+
+    let createWaitTimeSlider dispatch model =
+        [View.Slider(
+            minimum = 0.0, 
+            maximum = 10.0, 
+            value = double model.WaitTimeInSec, 
+            valueChanged = (fun args -> 
+                let newWaitTime = int (args.NewValue + 0.5)
+                if newWaitTime <> model.WaitTimeInSec then
+                    dispatch (WaitTimeValueChanged newWaitTime)),
+            isEnabled = (model.ActiveGame = None))
+         View.Label(text = sprintf "Delay: %d seconds" model.WaitTimeInSec)  
+        ]
 
     let view (model: Model) dispatch =
         View.ContentPage(
           content = View.StackLayout(padding = 20.0, verticalOptions = LayoutOptions.Center,
             children = 
                 createGameView dispatch model SimpleNoteGame @
-                createGameView dispatch model KeyboardNoteGame
+                createGameView dispatch model KeyboardNoteGame @
+                createWaitTimeSlider dispatch model 
             )
         )
 
