@@ -6,46 +6,70 @@ open Fabulous.DynamicViews
 open Xamarin.Forms
 
 module App = 
-    open System
-
-    let rand = new Random()
+    type Game =
+        | SimpleNoteGame
+        | KeyboardNoteGame
+        member this.DisplayName =
+            match this with
+            | SimpleNoteGame -> "Simple Notes"
+            | KeyboardNoteGame -> "Keyboard Notes"
 
     type Model = 
-      { TimerOn: bool }
+      { ActiveGame: Game option}
 
     type Msg = 
-        | Reset
-        | TimerToggled of bool
-        | TimedTick
+        | GameToggled of Game * isOn: bool 
+        | GameRepetition of Game
 
-    let initModel = { TimerOn=false }
+    let initModel = { ActiveGame = None}
 
     let init () = initModel, Cmd.none
 
-    let timerCmd willPlayFirstTick = 
-        async { do! Async.Sleep (if willPlayFirstTick then 0 else 4000)
-                return TimedTick }
+    let speak game =
+        match game with
+        | SimpleNoteGame -> NotePlayer.playRandomSimpleNote ()
+        | KeyboardNoteGame -> NotePlayer.playRandomKeyboardNote ()
+
+    let repetitionCmd game = 
+        async { 
+            do! Async.AwaitIAsyncResult (speak game) |> Async.Ignore
+            do! Async.Sleep 4000
+            return GameRepetition game }
         |> Cmd.ofAsyncMsg
 
-    let update msg model =
-        match msg with
-        | Reset -> init ()
-        | TimerToggled on -> { model with TimerOn = on; }, (if on then timerCmd true else Cmd.none)
-        | TimedTick -> 
-            if model.TimerOn then 
-                NotePlayer.play rand
-                model, timerCmd false
-            else 
-                model, Cmd.none
+
+    let update msg (model: Model) =
+        match msg, model.ActiveGame with
+        | GameRepetition _, None ->  model, Cmd.none
+        | GameRepetition game, Some activeGame  when game <> activeGame ->  model, Cmd.none
+        | GameRepetition _, Some activeGame -> 
+                model, repetitionCmd activeGame
+        | GameToggled (game, true), _ -> {model with ActiveGame = Some game}, Cmd.ofMsg (GameRepetition game)
+        | GameToggled (game, false), Some activeGame when activeGame = game -> {model with ActiveGame = None}, Cmd.none
+        | GameToggled (_, false), _ -> model, Cmd.none
+
+
+    let createLabel (game: Game) =
+        View.Label(text = game.DisplayName, horizontalOptions = LayoutOptions.Center)
+        
+    let createToggleForGame dispatch model game =
+        View.Switch(
+            isToggled = (model.ActiveGame = (Some game)),
+            toggled = (fun on -> dispatch <| GameToggled (game, on.Value)),
+            horizontalOptions = LayoutOptions.Center)
+
+    let createGameView dispatch model game =
+        [ createLabel game
+          createToggleForGame dispatch model game]
 
     let view (model: Model) dispatch =
         View.ContentPage(
           content = View.StackLayout(padding = 20.0, verticalOptions = LayoutOptions.Center,
-            children = [ 
-                View.Label(text = "Timer", horizontalOptions = LayoutOptions.Center)
-                View.Switch(isToggled = model.TimerOn, toggled = (fun on -> dispatch (TimerToggled on.Value)), horizontalOptions = LayoutOptions.Center)
-                View.Button(text = "Reset", horizontalOptions = LayoutOptions.Center, command = (fun () -> dispatch Reset), canExecute = (model <> initModel))
-            ]))
+            children = 
+                createGameView dispatch model SimpleNoteGame @
+                createGameView dispatch model KeyboardNoteGame
+            )
+        )
 
     // Note, this declaration is needed if you enable LiveUpdate
     let program = Program.mkProgram init update view

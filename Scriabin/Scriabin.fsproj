@@ -6,6 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="Random.fs" />
     <Compile Include="Types.fs" />
     <Compile Include="NotePlayer.fs" />
     <Compile Include="Intervals.fs" />
